@@ -40,7 +40,7 @@ class DataUtil:
         df.fillna(method="ffill", inplace=True)
         df.fillna(method="bfill", inplace=True)
 
-    def grab_data_combined(self, dates: pd.DatetimeIndex = None, ignore_SMH = True) -> torch.Tensor:
+    def grab_data_combined(self, dates: pd.DatetimeIndex = None, ignore_SMH = True, add_none_trading_days = False) -> torch.Tensor:
         """
         Combines all stock data into a single DataFrame for the specified date range.
 
@@ -77,12 +77,60 @@ class DataUtil:
             )
 
             # Join the temporary DataFrame with the main DataFrame
-            df = df.join(df_temp)
-            self.fill_missing_values(df)
+            if add_none_trading_days:
+                df = df.join(df_temp)
+                self.fill_missing_values(df)
+            else:
+                df = df_temp.loc[self.start_date:self.end_date]
             list_stocks_df.append(df)
         
         print()
-        np_stocks_df = np.array(list_stocks_df)
+        np_stocks_df = np.array(list_stocks_df) # [samples, dates, data]
+        np_stocks_df = np_stocks_df.transpose(1, 0, 2) # [dates, samples, data]
+        tensor_stocks_df = torch.tensor(np_stocks_df)
+        return tensor_stocks_df
+    
+    def same_dates(self, dates: pd.DatetimeIndex = None) -> torch.Tensor:
+        """
+        Combines all stock data into a single DataFrame for the specified date range.
+
+        Args:
+            dates (pd.DatetimeIndex, optional): The date range to use. Defaults to self.date_range.
+
+        Returns:
+            list of pd.DataFrames: The combined stocks data.
+        """
+        
+        # Use default date range if none given
+        if type(dates) != pd.DatetimeIndex:
+            print('[WARNING] No date range has been given, using default date range')
+            dates = self.date_range
+            
+        list_stocks_df = []
+        # Initialize an empty DataFrame with the specified dates
+        for idx, symbol_file in enumerate(self.all_stock_files):
+            file_path = os.path.join(self.data_dir, symbol_file)
+            print(f'Processing file: {file_path}')
+
+
+            # Read the CSV file into a temporary DataFrame
+            df = pd.DataFrame(index=dates)
+            df_temp = pd.read_csv(
+                file_path,
+                index_col="Date",
+                parse_dates=True,
+                na_values=["nan"],
+            )
+
+            # Join the temporary DataFrame with the main DataFrame
+            df = df.join(df_temp)
+            print(len(df_temp.loc[self.start_date:self.end_date]))
+            
+            list_stocks_df.append(df)
+        
+        print()
+        np_stocks_df = np.array(list_stocks_df) # [samples, dates, data]
+        np_stocks_df = np_stocks_df.transpose(1, 0, 2) # [dates, samples, data]
         tensor_stocks_df = torch.tensor(np_stocks_df)
         return tensor_stocks_df
     
@@ -145,11 +193,10 @@ class DataUtil:
 
 
 
-# if __name__ == "__main__":
-#     print("Executing as the main program")
-#     data_util = DataUtil()
-#     combined_data = data_util.grab_data_combined()
-#     print(combined_data.shape)
-    
-#     print(data_util.grab_a_stock_data(stock_name='SMH'))
+if __name__ == "__main__":
+    # print("Executing as the main program")
+    data_util = DataUtil()
+    combined_data = data_util.grab_data_combined()
+    print(combined_data.shape)
+
 
