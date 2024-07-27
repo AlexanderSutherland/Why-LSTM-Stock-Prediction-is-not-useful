@@ -40,7 +40,7 @@ class DataUtil:
         df.fillna(method="ffill", inplace=True)
         df.fillna(method="bfill", inplace=True)
 
-    def grab_data_combined(self, dates: pd.DatetimeIndex = None) -> pd.DataFrame:
+    def grab_data_combined(self, dates: pd.DatetimeIndex = None, ignore_SMH = True) -> torch.Tensor:
         """
         Combines all stock data into a single DataFrame for the specified date range.
 
@@ -51,9 +51,11 @@ class DataUtil:
             list of pd.DataFrames: The combined stocks data.
         """
         
+        # Use default date range if none given
         if type(dates) != pd.DatetimeIndex:
             print('[WARNING] No date range has been given, using default date range')
             dates = self.date_range
+            
         list_stocks_df = []
         # Initialize an empty DataFrame with the specified dates
         for idx, symbol_file in enumerate(self.all_stock_files):
@@ -61,7 +63,7 @@ class DataUtil:
             print(f'Processing file: {file_path}')
 
             # Skip files related to 'SMH'
-            if 'SMH' in symbol_file:
+            if ignore_SMH and 'SMH' in symbol_file:
                 print(f'Skipping {symbol_file}')
                 continue
 
@@ -79,15 +81,75 @@ class DataUtil:
             self.fill_missing_values(df)
             list_stocks_df.append(df)
         
+        print()
         np_stocks_df = np.array(list_stocks_df)
         tensor_stocks_df = torch.tensor(np_stocks_df)
         return tensor_stocks_df
+    
+    def grab_a_stock_data(self, dates: pd.DatetimeIndex = None, stock_name: str = None) -> pd.DataFrame:
+        """
+        Grabs the specific Stock/ETF data given a date range.
+
+        Args:
+            dates (pd.DatetimeIndex, optional): The date range to use. Defaults to self.date_range.
+
+        Returns:
+            pd.DataFrame of the stock: stock data.
+        """
+        file_path_set = False
+        if stock_name is None:
+            raise ValueError ('No Stock Name given')
+        
+        # Use default date range if none given
+        if type(dates) != pd.DatetimeIndex:
+            print('[WARNING] No date range has been given, using default date range')
+            dates = self.date_range
+        
+        # Find the stock name (can be given in name or file format)
+        for idx, symbol_file in enumerate(self.all_stock_files):
+            if stock_name in symbol_file and '.csv' in symbol_file:
+                file_path = os.path.join(self.data_dir, symbol_file)
+                file_path_set = True
+                print(f'File found: {file_path}')
+                break
+        
+        if not file_path_set:
+            raise ValueError ('No Stock Name not found')
+        
+        # Read the CSV file into a temporary DataFrame
+        df = pd.DataFrame(index=dates)
+        df_temp = pd.read_csv(
+            file_path,
+            index_col="Date",
+            parse_dates=True,
+            na_values=["nan"],
+        )
+        # Join the temporary DataFrame with the main DataFrame
+        df = df.join(df_temp)
+        self.fill_missing_values(df)
+        
+        return df
+    
+    def grab_SMH_data(self, dates: pd.DatetimeIndex = None) -> pd.DataFrame:
+        """
+        Grabs the SMH data given a date range.
+
+        Args:
+            dates (pd.DatetimeIndex, optional): The date range to use. Defaults to self.date_range.
+
+        Returns:
+            pd.DataFrame of SMH: SMH data.
+        """
+        
+        return self.grab_a_stock_data(dates = dates, stock_name = 'SMH.csv')
 
 
 
-if __name__ == "__main__":
-    print("Executing as the main program")
-    data_util = DataUtil()
-    combined_data = data_util.grab_data_combined()
-    print(combined_data.shape)
+# if __name__ == "__main__":
+#     print("Executing as the main program")
+#     data_util = DataUtil()
+#     combined_data = data_util.grab_data_combined()
+#     print(combined_data.shape)
+    
+#     print(data_util.grab_a_stock_data(stock_name='SMH'))
 
