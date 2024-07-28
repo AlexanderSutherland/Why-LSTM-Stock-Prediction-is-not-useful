@@ -67,7 +67,7 @@ def train_model(model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=
     optimizer = optimizer_type(model.parameters(), lr=0.001)
     
     # Generate data
-    train_loader, test_loader = generate_data_loaders(X_data=None, Y_data=None, label=None)
+    train_loader, test_loader = generate_data_loaders()
     
     model.train()
     for epoch in range(epochs):
