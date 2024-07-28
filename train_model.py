@@ -31,7 +31,8 @@ def main():
     train_loader, test_loader = generate_data_loaders(batch_size = batch_size,
                                                       start_date = start_date,
                                                       end_date = end_date,
-                                                      split_ratio = split_ratio)
+                                                      split_ratio = split_ratio,
+                                                      device = 'cpu')
     
     # Train the model
     model = train_model(train_loader,
@@ -48,7 +49,8 @@ def main():
 def generate_data_loaders(batch_size=32, 
                           start_date = dt.datetime(2014, 1, 1), 
                           end_date = dt.datetime(2016, 1, 1), 
-                          split_ratio = 0.8):
+                          split_ratio = 0.8,
+                          device = 'cpu'):
     """
     Grabs the data loaders given a date range.
 
@@ -74,6 +76,9 @@ def generate_data_loaders(batch_size=32,
     # Convert data to float32
     X_data = X_data.float()
     Y_data = Y_data.float()
+    
+    X_data = X_data.to(device=device)
+    Y_data = Y_data.to(device=device)
     
     # Where to split X and Y
     split_index = int(split_ratio * len(X_data))
@@ -117,10 +122,10 @@ def train_model(train_loader, model_type = CNN_LSTM, criterion = nn.MSELoss(), o
     # Initiate Model
     if model_type == CNN_LSTM:
         # Model initialization parameters
-        cnn_in_channels = 18
+        cnn_in_channels = 6
         cnn_out_channels = 100
-        lstm_hidden_size = 200
-        lstm_num_layers = 4
+        lstm_hidden_size = 128
+        lstm_num_layers = 2
         output_size = 1
         model = model_type(cnn_in_channels,
                            cnn_out_channels, 
@@ -144,8 +149,8 @@ def train_model(train_loader, model_type = CNN_LSTM, criterion = nn.MSELoss(), o
         total_loss = 0
         for x_batch, y_batch in train_loader:
             print('Epoch', epoch)
-            print('x batch:', x_batch)
-            print('y batch:', y_batch)
+            print('x batch:', x_batch.shape)
+            print('y batch:', y_batch.shape)
             optimizer.zero_grad()
             output = model(x_batch)
             loss = criterion(output, y_batch)
