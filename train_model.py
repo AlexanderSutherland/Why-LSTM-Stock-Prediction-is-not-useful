@@ -6,7 +6,40 @@ import pandas as pd
 from cnn_lstm import CNN_LSTM
 from data_util import DataUtil
 from torch.utils.data import DataLoader, TensorDataset
+import matplotlib
 
+def main():
+    # Hyperparmeters
+    batch_size = 32
+    learning_rate = 0.0001
+    criterion = nn.MSELoss()
+    optimzer_type = optim.adam
+    epochs = 10000
+    
+    # Date Range
+    start_date = None
+    end_date = None
+    
+    # Split ratio for Train and Test
+    split_ratio = 0.8
+    
+    # Generate the data sets for training and testing (Called loaders)
+    train_loader, test_loader = generate_data_loaders(batch_size = batch_size,
+                                                      start_date = start_date,
+                                                      end_date = end_date,
+                                                      split_ratio = split_ratio)
+    
+    # Train the model
+    model = train_model(train_loader,
+                        model_type = CNN_LSTM,
+                        criterion = criterion,
+                        optimizer_type = optimzer_type,
+                        epochs = epochs,
+                        learning_rate = learning_rate,
+                        load_model = None)
+    
+    # Test model
+    test_model(test_loader, model) 
 
 def generate_data_loaders(batch_size=32, 
                           start_date = dt.datetime(2014, 1, 1), 
@@ -30,8 +63,9 @@ def generate_data_loaders(batch_size=32,
     date_range = pd.date_range(start=start_date, end = end_date)
     
     # Grab X_data and Y_data (Y is one day ahead of X)
-    X_data = DataUtil.grab_data_combined(dates=date_range)[:-1]
-    Y_data = DataUtil.grab_SMH_adj_close(dates=date_range)[1:]
+    data_util = DataUtil()
+    X_data = data_util.grab_data_combined(dates=date_range)[:-1]
+    Y_data = data_util.grab_SMH_adj_close(dates=date_range)[1:]
     
     # Where to split X and Y
     split_index = int(split_ratio * len(X_data))
@@ -56,7 +90,7 @@ def generate_data_loaders(batch_size=32,
     return train_loader, test_loader
 
 
-def train_model(model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=optim.Adam, epochs = 10000, load_model = None):
+def train_model(train_loader, model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=optim.Adam, epochs = 10000, learning_rate = 0.001, load_model = None):
     """
     Trains the given model for stock price prediction.
 
@@ -92,15 +126,16 @@ def train_model(model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=
         model.load_state_dict(torch.load(load_model))
     
     # Create Optimizer
-    optimizer = optimizer_type(model.parameters(), lr=0.001)
+    optimizer = optimizer_type(model.parameters(), lr=learning_rate)
     
-    # Generate data
-    train_loader, test_loader = generate_data_loaders()
     
     model.train()
     for epoch in range(epochs):
         total_loss = 0
         for x_batch, y_batch in train_loader:
+            print('Epoch', epoch)
+            print('x batch:', x_batch)
+            print('y batch:', y_batch)
             optimizer.zero_grad()
             output = model(x_batch)
             loss = criterion(output, y_batch)
@@ -114,10 +149,10 @@ def train_model(model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=
     if save_model.upper() == 'YES':
         torch.save(model.state_dict(), 'model.pth')
     
-    return model, test_loader
+    return model
 
 # Test model on test data
-def test_model(model, test_loader, criterion=nn.MSELoss()):
+def test_model(test_loader, model, criterion=nn.MSELoss()):
     """
     Tests the given model on the test data.
 
@@ -138,13 +173,13 @@ def test_model(model, test_loader, criterion=nn.MSELoss()):
             total_loss += loss.item()
     avg_loss = total_loss / len(test_loader)
     print(f'Test Loss: {avg_loss}')
+    
+    return model
 
-def main():
-    model, test_loader = train_model()
-    test_model(model, test_loader)  
 
 if __name__ == "__main__":
     # print("Executing as the main program")
-    data_util = DataUtil()
-    combined_data = data_util.grab_SMH_adj_close()
-    print(combined_data.shape)
+    # data_util = DataUtil()
+    # combined_data = data_util.grab_SMH_adj_close()
+    # print(combined_data.shape)
+    main()
