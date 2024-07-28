@@ -9,16 +9,20 @@ from torch.utils.data import DataLoader, TensorDataset
 import matplotlib
 
 def main():
+    # Check device availability
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print("You are using device: %s" % device)
+    
     # Hyperparmeters
     batch_size = 32
     learning_rate = 0.0001
     criterion = nn.MSELoss()
-    optimzer_type = optim.adam
+    optimzer_type = optim.Adam
     epochs = 10000
     
     # Date Range
-    start_date = None
-    end_date = None
+    start_date = dt.datetime(2014, 1, 1)
+    end_date = dt.datetime(2016, 1, 1)
     
     # Split ratio for Train and Test
     split_ratio = 0.8
@@ -67,6 +71,10 @@ def generate_data_loaders(batch_size=32,
     X_data = data_util.grab_data_combined(dates=date_range)[:-1]
     Y_data = data_util.grab_SMH_adj_close(dates=date_range)[1:]
     
+    # Convert data to float32
+    X_data = X_data.float()
+    Y_data = Y_data.float()
+    
     # Where to split X and Y
     split_index = int(split_ratio * len(X_data))
     
@@ -81,11 +89,11 @@ def generate_data_loaders(batch_size=32,
     test_dataset = TensorDataset(x_test, y_test)
     
     train_loader = DataLoader(train_dataset, 
-                              batch_size=batch_size, 
-                              shuffle=True)
+                              batch_size = batch_size, 
+                              shuffle = False)
     test_loader = DataLoader(test_dataset, 
-                             batch_size=batch_size, 
-                             shuffle=False)
+                             batch_size = batch_size, 
+                             shuffle = False)
     
     return train_loader, test_loader
 
@@ -109,11 +117,13 @@ def train_model(train_loader, model_type = CNN_LSTM, criterion = nn.MSELoss(), o
     # Initiate Model
     if model_type == CNN_LSTM:
         # Model initialization parameters
-        cnn_out_channels = 1
-        lstm_hidden_size = 1
-        lstm_num_layers = 1
+        cnn_in_channels = 18
+        cnn_out_channels = 100
+        lstm_hidden_size = 200
+        lstm_num_layers = 4
         output_size = 1
-        model = model_type(cnn_out_channels, 
+        model = model_type(cnn_in_channels,
+                           cnn_out_channels, 
                            lstm_hidden_size, 
                            lstm_num_layers, 
                            output_size)
@@ -178,8 +188,4 @@ def test_model(test_loader, model, criterion=nn.MSELoss()):
 
 
 if __name__ == "__main__":
-    # print("Executing as the main program")
-    # data_util = DataUtil()
-    # combined_data = data_util.grab_SMH_adj_close()
-    # print(combined_data.shape)
     main()
