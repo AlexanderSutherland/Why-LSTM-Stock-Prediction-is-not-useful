@@ -8,7 +8,10 @@ from data_util import DataUtil
 from torch.utils.data import DataLoader, TensorDataset
 
 
-def generate_data_loaders(X_data, Y_data, label, batch_size=32, shuffle=False, start_date = dt.datetime(2014, 1, 1), end_date = dt.datetime(2016, 1, 1), split_ratio = 0.8):
+def generate_data_loaders(batch_size=32, 
+                          start_date = dt.datetime(2014, 1, 1), 
+                          end_date = dt.datetime(2016, 1, 1), 
+                          split_ratio = 0.8):
     # Set date range
     date_range = pd.date_range(start=start_date, end = end_date)
     
@@ -29,22 +32,29 @@ def generate_data_loaders(X_data, Y_data, label, batch_size=32, shuffle=False, s
     train_dataset = TensorDataset(x_train, y_train)
     test_dataset = TensorDataset(x_test, y_test)
     
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, 
+                              batch_size=batch_size, 
+                              shuffle=True)
+    test_loader = DataLoader(test_dataset, 
+                             batch_size=batch_size, 
+                             shuffle=False)
     
     return train_loader, test_loader
 
 
 def train_model(model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=optim.Adam, epochs = 10000, load_model = None):
-    # Model initialization parameters
-    cnn_out_channels = 1
-    lstm_hidden_size = 1
-    lstm_num_layers = 1
-    output_size = 1
     
     # Initiate Model
     if model_type == CNN_LSTM:
-        model = model_type(cnn_out_channels, lstm_hidden_size, lstm_num_layers, output_size)
+        # Model initialization parameters
+        cnn_out_channels = 1
+        lstm_hidden_size = 1
+        lstm_num_layers = 1
+        output_size = 1
+        model = model_type(cnn_out_channels, 
+                           lstm_hidden_size, 
+                           lstm_num_layers, 
+                           output_size)
     else:
         # TO DO!!
         pass
@@ -56,7 +66,7 @@ def train_model(model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=
     # Create Optimizer
     optimizer = optimizer_type(model.parameters(), lr=0.001)
     
-    # Generate
+    # Generate data
     train_loader, test_loader = generate_data_loaders(X_data=None, Y_data=None, label=None)
     
     model.train()
