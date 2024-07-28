@@ -43,24 +43,7 @@ class CNN_LSTM(nn.Module):
         self.fc = nn.Linear(lstm_hidden_size, output_size)
 
 
-    def forward(self, x):
-        # out = self.cnn1(x)
-        # out = self.cnn2(out)
-        
-        # # Permute to fit LSTM input requirements (batch, seq_len, feature)
-        # out = out.permute(0, 2, 1)
-        
-        # # Pass through LSTM layers
-        # out, hidden_x = self.lstm(out)
-        
-        # # Only take the output of the last time step
-        # out = out[:, -1, :]
-        
-        # # Pass through Fully Connected layer
-        # out = self.fc(out)
-        
-        # return out
-    
+    def forward(self, x):    
         x = x.permute(0, 2, 1)
         
         # Pass through CNN layers
