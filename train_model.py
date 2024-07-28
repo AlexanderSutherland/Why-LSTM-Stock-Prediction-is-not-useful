@@ -8,18 +8,19 @@ from lstm import LSTM
 from data_util import DataUtil
 from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
+import numpy as np
 
 def main():
     # Check device availability
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print("You are using device: %s" % device)
     
-    # Hyperparmeters
+    # Hyperparameters
     batch_size = 32
     learning_rate = 0.0001
     criterion = nn.MSELoss()
-    optimzer_type = optim.Adam
-    epochs = 10000
+    optimizer_type = optim.Adam
+    epochs = 1000
     
     # Date Range
     start_date = dt.datetime(2014, 1, 1)
@@ -29,29 +30,31 @@ def main():
     split_ratio = 0.8
     
     # Generate the data sets for training and testing (Called loaders)
-    train_loader, test_loader = generate_data_loaders(batch_size = batch_size,
-                                                      start_date = start_date,
-                                                      end_date = end_date,
-                                                      split_ratio = split_ratio,
-                                                      device = 'cpu')
+    train_loader, test_loader = generate_data_loaders(batch_size=batch_size,
+                                                      start_date=start_date,
+                                                      end_date=end_date,
+                                                      split_ratio=split_ratio,
+                                                      device=device)
     
     # Train the model
     model = train_model(train_loader,
-                        model_type = CNN_LSTM,
-                        criterion = criterion,
-                        optimizer_type = optimzer_type,
-                        epochs = epochs,
-                        learning_rate = learning_rate,
-                        load_model = None)
+                        test_loader,
+                        model_type=CNN_LSTM,
+                        criterion=criterion,
+                        optimizer_type=optimizer_type,
+                        epochs=epochs,
+                        learning_rate=learning_rate,
+                        load_model=None,
+                        device=device)
     
     # Test model
-    test_model(test_loader, model) 
+    test_model(test_loader, model, criterion, device) 
 
 def generate_data_loaders(batch_size=32, 
-                          start_date = dt.datetime(2014, 1, 1), 
-                          end_date = dt.datetime(2016, 1, 1), 
-                          split_ratio = 0.8,
-                          device = 'cpu'):
+                          start_date=dt.datetime(2014, 1, 1), 
+                          end_date=dt.datetime(2016, 1, 1), 
+                          split_ratio=0.8,
+                          device='cpu'):
     """
     Grabs the data loaders given a date range.
 
@@ -64,10 +67,8 @@ def generate_data_loaders(batch_size=32,
     Returns:
         tuple: A tuple containing training and test DataLoader instances.
     """
-    
-    
     # Set date range
-    date_range = pd.date_range(start=start_date, end = end_date)
+    date_range = pd.date_range(start=start_date, end=end_date)
     
     # Grab X_data and Y_data (Y is one day ahead of X)
     data_util = DataUtil()
@@ -90,36 +91,31 @@ def generate_data_loaders(batch_size=32,
     x_test = X_data[split_index:]
     y_test = Y_data[split_index:]
     
-
     train_dataset = TensorDataset(x_train, y_train)
     test_dataset = TensorDataset(x_test, y_test)
     
-    train_loader = DataLoader(train_dataset, 
-                              batch_size = batch_size, 
-                              shuffle = False)
-    test_loader = DataLoader(test_dataset, 
-                             batch_size = batch_size, 
-                             shuffle = False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
     
     return train_loader, test_loader
 
 
-def train_model(train_loader, model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=optim.Adam, epochs = 10000, learning_rate = 0.001, load_model = None):
+def train_model(train_loader, test_loader, model_type, criterion, optimizer_type, epochs, learning_rate, load_model, device):
     """
     Trains the given model for stock price prediction.
 
     Args:
         model_type (class): The model class to be used for training.
-        criterion (class, optional): The loss function to use. Defaults to nn.MSELoss.
-        optimizer_type (class, optional): The optimizer class to use. Defaults to optim.Adam.
-        epochs (int, optional): Number of epochs for training. Defaults to 10000.
+        criterion (class): The loss function to use.
+        optimizer_type (class): The optimizer class to use.
+        epochs (int): Number of epochs for training.
+        learning_rate (float): Learning rate for the optimizer.
         load_model (str, optional): Path to a pre-trained model to load. Defaults to None.
+        device (str): Device to run the training on (cpu or cuda).
 
     Returns:
-        tuple: The trained model and the test DataLoader.
+        torch.nn.Module: The trained model.
     """
-    
-    
     # Initiate Model
     if model_type == CNN_LSTM:
         # Model initialization parameters
@@ -132,36 +128,57 @@ def train_model(train_loader, model_type = CNN_LSTM, criterion = nn.MSELoss(), o
                            cnn_out_channels, 
                            lstm_hidden_size, 
                            lstm_num_layers, 
-                           output_size)
+                           output_size).to(device)
     elif model_type == LSTM:
-        pass # FENG TO DO
+        # TO DO FENG
+        input_size = 6  # Number of features
+        lstm_hidden_size = 128
+        lstm_num_layers = 2
+        output_size = 1
+        model = LSTM(input_size,
+                     lstm_hidden_size, 
+                     lstm_num_layers, 
+                     output_size).to(device)
     else:
-        raise ValueError ('No Model type given!')
+        raise ValueError('No Model type given!')
     
-    # Load in previous model
+    # Load previous model if provided
     if load_model is not None:
         model.load_state_dict(torch.load(load_model))
     
     # Create Optimizer
     optimizer = optimizer_type(model.parameters(), lr=learning_rate)
     
-    
-    model.train()
+    train_loss_history = []
+    test_loss_history = []
     for epoch in range(epochs):
+        model.train()
         total_loss = 0
         for x_batch, y_batch in train_loader:
-            print('Epoch', epoch)
-            print('x batch:', x_batch.shape)
-            print('y batch:', y_batch.shape)
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
             optimizer.zero_grad()
             output = model(x_batch)
             loss = criterion(output, y_batch)
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
-        print(f'Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(train_loader)}')   
+        train_loss_history.append(total_loss / len(train_loader))
+        print(f'Epoch {epoch+1}/{epochs}, Loss: {total_loss / len(train_loader)}')   
+        
+        _, test_avg_loss = test_model(test_loader, model, criterion, device)
+        test_loss_history.append(test_avg_loss)
     
-    # Save off model updates
+    plot_loss = input('Would you like to create a plot comparing the train and test datasets losses? Type "YES" to confirm: ')
+    if plot_loss.upper() == 'YES':
+        plt.plot(train_loss_history, label='Train')
+        plt.plot(test_loss_history, label='Test')
+        plt.legend()
+        plt.title('Loss Curve')
+        plt.ylabel('Loss')
+        plt.xlabel('Epochs')
+        plt.show()
+    
+    # Save model updates
     save_model = input('Would you like to save the model? Type "YES" to confirm: ')
     if save_model.upper() == 'YES':
         torch.save(model.state_dict(), 'model.pth')
@@ -169,29 +186,31 @@ def train_model(train_loader, model_type = CNN_LSTM, criterion = nn.MSELoss(), o
     return model
 
 # Test model on test data
-def test_model(test_loader, model, criterion=nn.MSELoss()):
+def test_model(test_loader, model, criterion, device):
     """
     Tests the given model on the test data.
 
     Args:
         model (torch.nn.Module): The trained model to be tested.
         test_loader (torch.utils.data.DataLoader): The DataLoader containing test data.
-        criterion (class, optional): The loss function to use. Defaults to nn.MSELoss.
+        criterion (class): The loss function to use.
+        device (str): Device to run the testing on (cpu or cuda).
 
     Returns:
-        None
+        tuple: The model and the average loss.
     """
     model.eval()
     total_loss = 0
     with torch.no_grad():
         for x_batch, y_batch in test_loader:
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
             output = model(x_batch)
             loss = criterion(output, y_batch)
             total_loss += loss.item()
     avg_loss = total_loss / len(test_loader)
     print(f'Test Loss: {avg_loss}')
     
-    return model
+    return model, avg_loss
 
 
 if __name__ == "__main__":
