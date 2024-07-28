@@ -12,6 +12,20 @@ def generate_data_loaders(batch_size=32,
                           start_date = dt.datetime(2014, 1, 1), 
                           end_date = dt.datetime(2016, 1, 1), 
                           split_ratio = 0.8):
+    """
+    Grabs the data loaders given a date range.
+
+    Args:
+        batch_size (int, optional): Size of each data batch. Defaults to 32.
+        start_date (datetime, optional): Start date of the data range. Defaults to January 1, 2014.
+        end_date (datetime, optional): End date of the data range. Defaults to January 1, 2016.
+        split_ratio (float, optional): Ratio to split the data into training and testing sets. Defaults to 0.8.
+
+    Returns:
+        tuple: A tuple containing training and test DataLoader instances.
+    """
+    
+    
     # Set date range
     date_range = pd.date_range(start=start_date, end = end_date)
     
@@ -43,6 +57,20 @@ def generate_data_loaders(batch_size=32,
 
 
 def train_model(model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=optim.Adam, epochs = 10000, load_model = None):
+    """
+    Trains the given model for stock price prediction.
+
+    Args:
+        model_type (class): The model class to be used for training.
+        criterion (class, optional): The loss function to use. Defaults to nn.MSELoss.
+        optimizer_type (class, optional): The optimizer class to use. Defaults to optim.Adam.
+        epochs (int, optional): Number of epochs for training. Defaults to 10000.
+        load_model (str, optional): Path to a pre-trained model to load. Defaults to None.
+
+    Returns:
+        tuple: The trained model and the test DataLoader.
+    """
+    
     
     # Initiate Model
     if model_type == CNN_LSTM:
@@ -79,9 +107,7 @@ def train_model(model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
-        print(f'Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(train_loader)}')
-    
-    
+        print(f'Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(train_loader)}')   
     
     # Save off model updates
     save_model = input('Would you like to save the model? Type "YES" to confirm: ')
@@ -90,7 +116,19 @@ def train_model(model_type = CNN_LSTM, criterion = nn.MSELoss(), optimizer_type=
     
     return model, test_loader
 
+# Test model on test data
 def test_model(model, test_loader, criterion=nn.MSELoss()):
+    """
+    Tests the given model on the test data.
+
+    Args:
+        model (torch.nn.Module): The trained model to be tested.
+        test_loader (torch.utils.data.DataLoader): The DataLoader containing test data.
+        criterion (class, optional): The loss function to use. Defaults to nn.MSELoss.
+
+    Returns:
+        None
+    """
     model.eval()
     total_loss = 0
     with torch.no_grad():
