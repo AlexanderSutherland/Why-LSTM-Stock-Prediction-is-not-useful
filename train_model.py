@@ -4,9 +4,10 @@ import torch.optim as optim
 import datetime as dt
 import pandas as pd
 from cnn_lstm import CNN_LSTM
+from lstm import LSTM
 from data_util import DataUtil
 from torch.utils.data import DataLoader, TensorDataset
-import matplotlib
+import matplotlib.pyplot as plt
 
 def main():
     # Check device availability
@@ -132,9 +133,10 @@ def train_model(train_loader, model_type = CNN_LSTM, criterion = nn.MSELoss(), o
                            lstm_hidden_size, 
                            lstm_num_layers, 
                            output_size)
+    elif model_type == LSTM:
+        pass # FENG TO DO
     else:
-        # TO DO!!
-        pass
+        raise ValueError ('No Model type given!')
     
     # Load in previous model
     if load_model is not None:
