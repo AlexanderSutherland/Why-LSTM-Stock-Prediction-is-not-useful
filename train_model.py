@@ -17,10 +17,10 @@ def main():
     
     # Hyperparameters
     batch_size = 32
-    learning_rate = 0.00001
+    learning_rate = 0.0001
     criterion = nn.MSELoss()
     optimizer_type = optim.Adam
-    epochs = 2000
+    epochs = 200
     
     # Date Range
     start_date = dt.datetime(2014, 1, 1)
@@ -33,12 +33,12 @@ def main():
     num_prev_days = 50
     
     # Generate the data sets for training and testing (Called loaders)
-    train_loader, test_loader = generate_data_loaders(batch_size=batch_size,
-                                                      start_date=start_date,
-                                                      end_date=end_date,
-                                                      split_ratio=split_ratio,
-                                                      device=device,
-                                                      num_prev_days = num_prev_days)
+    train_loader, test_loader, x_train, y_train, x_test, y_test = generate_data_loaders(batch_size=batch_size,
+                                                                                        start_date=start_date,
+                                                                                        end_date=end_date,
+                                                                                        split_ratio=split_ratio,
+                                                                                        device=device,
+                                                                                        num_prev_days = num_prev_days)
     
     # Train the model
     model = train_model(train_loader,
@@ -54,6 +54,10 @@ def main():
     
     # Test model
     test_model(test_loader, model, criterion, device) 
+    
+    # Plot Price Predictions:
+    plot_results(model, x_train=x_train, y_train=y_train, x_test=x_test, y_test=y_test)
+    
 
 def generate_data_loaders(batch_size=32, 
                           start_date=dt.datetime(2014, 1, 1), 
@@ -105,7 +109,7 @@ def generate_data_loaders(batch_size=32,
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
     
-    return train_loader, test_loader
+    return train_loader, test_loader, x_train, y_train, x_test, y_test
 
 
 def train_model(train_loader, test_loader, model_type, criterion, optimizer_type, epochs, learning_rate, load_model, device, num_prev_days = 0):
@@ -220,6 +224,37 @@ def test_model(test_loader, model, criterion, device):
     
     return model, avg_loss
 
+def plot_results(model, x_train, y_train, x_test, y_test):
+    model.eval()
+    with torch.no_grad():
+        train_est = []
+        test_est = []
+        for idx in range(x_train.shape[0]):
+            output = model(x_train[idx].unsqueeze(0))
+            output = output.cpu()  # Move to CPU
+            train_est.append(output[0][0].item())  # Convert to scalar and append
+            print(f'[Train] Predicted: {output[0][0].item()}, Actual: {y_train[idx].item()}')
+        plt.plot(train_est, label='Train Estimate')
+        plt.plot(y_train.cpu(), label='Train Actual')  # Move y_train to CPU
+        plt.legend()
+        plt.title('Training Price Estimation')
+        plt.ylabel('Price')
+        plt.xlabel('Day')
+        plt.show()
+            
+        for idx in range(x_test.shape[0]):
+            output = model(x_test[idx].unsqueeze(0))
+            output = output.cpu()  # Move to CPU
+            test_est.append(output[0][0].item())  # Convert to scalar and append
+            print(f'[Test] Predicted: {output[0][0].item()}, Actual: {y_test[idx].item()}')
+        
+        plt.plot(test_est, label='Test Estimate')
+        plt.plot(y_test.cpu(), label='Test Actual')  # Move y_test to CPU
+        plt.legend()
+        plt.title('Test Price Estimation')
+        plt.ylabel('Price')
+        plt.xlabel('Day')
+        plt.show()
 
 if __name__ == "__main__":
     main()
