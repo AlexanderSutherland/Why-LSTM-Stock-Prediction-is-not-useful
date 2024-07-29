@@ -6,7 +6,7 @@ import torch.optim as optim
 
 class LSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers):
-        super().__init__()
+        super(LSTM, self).__init__()
 
         self.hidden_size = hidden_size
         self.num_layers = num_layers
