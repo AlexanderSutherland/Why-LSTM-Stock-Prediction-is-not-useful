@@ -107,7 +107,7 @@ class DataUtil:
         np_stocks_df = np.array(list_stocks_df) # [samples, dates, data]
         np_stocks_df = np_stocks_df.transpose(1, 0, 2) # [dates, samples, data]
         tensor_stocks_df = torch.tensor(np_stocks_df)
-        return tensor_stocks_df
+        return tensor_stocks_df, np_stocks_df, list_stocks_df
                
         
     
@@ -171,7 +171,7 @@ class DataUtil:
     def grab_SMH_adj_close(self, add_date_buffer = True) -> torch.Tensor:
         df = self.grab_SMH_data().loc[:,"Adj Close"]
         np_array = np.array(df)
-        return torch.tensor(np_array)
+        return torch.tensor(np_array), np_array, df
         
 
 
@@ -181,7 +181,6 @@ if __name__ == "__main__":
     data_util = DataUtil()
     # combined_data = data_util.grab_data_combined()
     combined_data = data_util.grab_data_combined(num_of_prev_days=10)
-    print(combined_data.shape)
-    print(data_util.grab_data_combined().shape)
+    print(combined_data[0].shape)
 
 

@@ -74,10 +74,14 @@ def generate_data_loaders(batch_size=32,
         tuple: A tuple containing training and test DataLoader instances.
     """
     
-    # Grab X_data and Y_data (Y is one day ahead of X)
+    # Grab X_data and Y_data
     data_util = DataUtil(start_date=start_date, end_date=end_date)
-    X_data = data_util.grab_data_combined(num_of_prev_days=num_prev_days)[:-1]
-    Y_data = data_util.grab_SMH_adj_close()[1:]
+    X_data, _, _ = data_util.grab_data_combined(num_of_prev_days=num_prev_days)
+    Y_data, _, _ = data_util.grab_SMH_adj_close()
+    
+    # Y is one day ahead of X
+    X_data = X_data[:-1]
+    Y_data = Y_data[1:]
     
     # Convert data to float32
     X_data = X_data.float()
