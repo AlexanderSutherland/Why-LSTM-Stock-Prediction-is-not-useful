@@ -25,16 +25,20 @@ def main():
     # Date Range
     start_date = dt.datetime(2014, 1, 1)
     end_date = dt.datetime(2016, 1, 1)
-    
+        
     # Split ratio for Train and Test
     split_ratio = 0.8
+    
+    # Past Days to include in current day:
+    num_prev_days = 50
     
     # Generate the data sets for training and testing (Called loaders)
     train_loader, test_loader = generate_data_loaders(batch_size=batch_size,
                                                       start_date=start_date,
                                                       end_date=end_date,
                                                       split_ratio=split_ratio,
-                                                      device=device)
+                                                      device=device,
+                                                      num_prev_days = num_prev_days)
     
     # Train the model
     model = train_model(train_loader,
@@ -45,7 +49,8 @@ def main():
                         epochs=epochs,
                         learning_rate=learning_rate,
                         load_model=None,
-                        device=device)
+                        device=device,
+                        num_prev_days = num_prev_days)
     
     # Test model
     test_model(test_loader, model, criterion, device) 
@@ -54,7 +59,8 @@ def generate_data_loaders(batch_size=32,
                           start_date=dt.datetime(2014, 1, 1), 
                           end_date=dt.datetime(2016, 1, 1), 
                           split_ratio=0.8,
-                          device='cpu'):
+                          device='cpu',
+                          num_prev_days = 0):
     """
     Grabs the data loaders given a date range.
 
@@ -72,7 +78,8 @@ def generate_data_loaders(batch_size=32,
     
     # Grab X_data and Y_data (Y is one day ahead of X)
     data_util = DataUtil()
-    X_data = data_util.grab_data_combined(dates=date_range)[:-1]
+    # X_data = data_util.grab_data_combined(dates=date_range)[:-1]
+    X_data = data_util.grab_data_combined_with_past_features(dates=date_range, num_of_prev_days=num_prev_days)[:-1]
     Y_data = data_util.grab_SMH_adj_close(dates=date_range)[1:]
     
     # Convert data to float32
@@ -100,7 +107,7 @@ def generate_data_loaders(batch_size=32,
     return train_loader, test_loader
 
 
-def train_model(train_loader, test_loader, model_type, criterion, optimizer_type, epochs, learning_rate, load_model, device):
+def train_model(train_loader, test_loader, model_type, criterion, optimizer_type, epochs, learning_rate, load_model, device, num_prev_days = 0):
     """
     Trains the given model for stock price prediction.
 
@@ -119,7 +126,7 @@ def train_model(train_loader, test_loader, model_type, criterion, optimizer_type
     # Initiate Model
     if model_type == CNN_LSTM:
         # Model initialization parameters
-        cnn_in_channels = 6
+        cnn_in_channels = 6 + 6 * num_prev_days
         cnn_out_channels = 100
         lstm_hidden_size = 128
         lstm_num_layers = 2

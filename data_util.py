@@ -90,6 +90,81 @@ class DataUtil:
         tensor_stocks_df = torch.tensor(np_stocks_df)
         return tensor_stocks_df
     
+    
+    def rename_columns(self, df, num_of_prev_days):
+        return df.rename(columns=lambda x: f"{x}_{str(num_of_prev_days)}")
+    
+    def create_shifted_dates(self, df, num_of_prev_days):
+        start_index = df.index.get_indexer([self.start_date], method='nearest')[0]
+        end_index = df.index.get_indexer([self.end_date], method='nearest')[0]
+        
+        if start_index < num_of_prev_days:
+            raise ValueError ('Not enough days prior for start date given number of days to look past')
+        
+        df_new = df.copy()[start_index:end_index+1]
+
+        for idx in range(1, num_of_prev_days + 1):
+            df_temp = df.shift(idx).iloc[start_index:end_index+1]
+            df_temp = self.rename_columns(df_temp, idx)
+            df_new = pd.concat([df_new, df_temp], axis=1)
+        return df_new
+    
+    def grab_data_combined_with_past_features(self, dates: pd.DatetimeIndex = None, ignore_SMH = True, add_none_trading_days = False, num_of_prev_days = 0) -> torch.Tensor:
+        """
+        Combines all stock data into a single DataFrame for the specified date range.
+
+        Args:
+            dates (pd.DatetimeIndex, optional): The date range to use. Defaults to self.date_range.
+
+        Returns:
+            list of pd.DataFrames: The combined stocks data.
+        """
+        
+        # Use default date range if none given
+        if type(dates) != pd.DatetimeIndex:
+            print('[WARNING] No date range has been given, using default date range')
+            dates = self.date_range
+            
+        list_stocks_df = []
+        # Initialize an empty DataFrame with the specified dates
+        for idx, symbol_file in enumerate(self.all_stock_files):
+            file_path = os.path.join(self.data_dir, symbol_file)
+            print(f'Processing file: {file_path}')
+
+            # Skip files related to 'SMH'
+            if ignore_SMH and 'SMH' in symbol_file:
+                print(f'Skipping {symbol_file}')
+                continue
+
+            # Read the CSV file into a temporary DataFrame
+            df = pd.DataFrame(index=dates)
+            df_temp = pd.read_csv(
+                file_path,
+                index_col="Date",
+                parse_dates=True,
+                na_values=["nan"],
+            )
+            # Only add previous day data to current date if num of previous days is greater than 0
+            if num_of_prev_days > 0:
+                df_temp = self.create_shifted_dates(df_temp, 
+                                                    num_of_prev_days= num_of_prev_days)
+
+            # Join the temporary DataFrame with the main DataFrame
+            if add_none_trading_days:
+                df = df.join(df_temp)
+                self.fill_missing_values(df)
+            else:
+                df = df_temp.loc[self.start_date:self.end_date]
+            list_stocks_df.append(df)
+        
+        print()
+        np_stocks_df = np.array(list_stocks_df) # [samples, dates, data]
+        np_stocks_df = np_stocks_df.transpose(1, 0, 2) # [dates, samples, data]
+        tensor_stocks_df = torch.tensor(np_stocks_df)
+        return tensor_stocks_df
+               
+        
+    
     def grab_a_stock_data(self, dates: pd.DatetimeIndex = None, stock_name: str = None, add_none_trading_days = False, add_date_buffer = True) -> pd.DataFrame:
         """
         Grabs the specific Stock/ETF data given a date range.
@@ -161,7 +236,9 @@ class DataUtil:
 if __name__ == "__main__":
     # print("Executing as the main program")
     data_util = DataUtil()
-    combined_data = data_util.grab_data_combined()
+    # combined_data = data_util.grab_data_combined()
+    combined_data = data_util.grab_data_combined_with_past_features(num_of_prev_days=10)
     print(combined_data.shape)
+    print(data_util.grab_data_combined().shape)
 
 
