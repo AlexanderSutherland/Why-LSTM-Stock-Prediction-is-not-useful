@@ -17,10 +17,10 @@ def main():
     
     # Hyperparameters
     batch_size = 32
-    learning_rate = 0.0001
+    learning_rate = 0.00001
     criterion = nn.MSELoss()
     optimizer_type = optim.Adam
-    epochs = 1000
+    epochs = 2000
     
     # Date Range
     start_date = dt.datetime(2014, 1, 1)
@@ -73,14 +73,11 @@ def generate_data_loaders(batch_size=32,
     Returns:
         tuple: A tuple containing training and test DataLoader instances.
     """
-    # Set date range
-    date_range = pd.date_range(start=start_date, end=end_date)
     
     # Grab X_data and Y_data (Y is one day ahead of X)
-    data_util = DataUtil()
-    # X_data = data_util.grab_data_combined(dates=date_range)[:-1]
-    X_data = data_util.grab_data_combined_with_past_features(dates=date_range, num_of_prev_days=num_prev_days)[:-1]
-    Y_data = data_util.grab_SMH_adj_close(dates=date_range)[1:]
+    data_util = DataUtil(start_date=start_date, end_date=end_date)
+    X_data = data_util.grab_data_combined(num_of_prev_days=num_prev_days)[:-1]
+    Y_data = data_util.grab_SMH_adj_close()[1:]
     
     # Convert data to float32
     X_data = X_data.float()

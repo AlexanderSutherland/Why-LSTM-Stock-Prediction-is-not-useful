@@ -10,7 +10,7 @@ class DataUtil:
     _summary_
     This class is use to grab and manipulate the data given in the /Data folder 
     """
-    def __init__(self) -> None:
+    def __init__(self, start_date = dt.datetime(2014, 1, 1), end_date=dt.datetime(2016, 1, 1)) -> None:
         """
         Initializes the DataUtil class with relevant directories, default dates, and stock file information.
         """
@@ -21,8 +21,8 @@ class DataUtil:
         self.all_stock_files = [f for f in os.listdir(self.data_dir) if os.path.isfile(os.path.join(self.data_dir, f))]
 
         # Default dates:
-        self.start_date = dt.datetime(2014, 1, 1)
-        self.end_date = dt.datetime(2016, 1, 1)
+        self.start_date = start_date
+        self.end_date = end_date
         self.date_range = pd.date_range(self.start_date, self.end_date)
 
 
@@ -39,56 +39,6 @@ class DataUtil:
         """
         df.fillna(method="ffill", inplace=True)
         df.fillna(method="bfill", inplace=True)
-
-    def grab_data_combined(self, dates: pd.DatetimeIndex = None, ignore_SMH = True, add_none_trading_days = False) -> torch.Tensor:
-        """
-        Combines all stock data into a single DataFrame for the specified date range.
-
-        Args:
-            dates (pd.DatetimeIndex, optional): The date range to use. Defaults to self.date_range.
-
-        Returns:
-            list of pd.DataFrames: The combined stocks data.
-        """
-        
-        # Use default date range if none given
-        if type(dates) != pd.DatetimeIndex:
-            print('[WARNING] No date range has been given, using default date range')
-            dates = self.date_range
-            
-        list_stocks_df = []
-        # Initialize an empty DataFrame with the specified dates
-        for idx, symbol_file in enumerate(self.all_stock_files):
-            file_path = os.path.join(self.data_dir, symbol_file)
-            print(f'Processing file: {file_path}')
-
-            # Skip files related to 'SMH'
-            if ignore_SMH and 'SMH' in symbol_file:
-                print(f'Skipping {symbol_file}')
-                continue
-
-            # Read the CSV file into a temporary DataFrame
-            df = pd.DataFrame(index=dates)
-            df_temp = pd.read_csv(
-                file_path,
-                index_col="Date",
-                parse_dates=True,
-                na_values=["nan"],
-            )
-
-            # Join the temporary DataFrame with the main DataFrame
-            if add_none_trading_days:
-                df = df.join(df_temp)
-                self.fill_missing_values(df)
-            else:
-                df = df_temp.loc[self.start_date:self.end_date]
-            list_stocks_df.append(df)
-        
-        print()
-        np_stocks_df = np.array(list_stocks_df) # [samples, dates, data]
-        np_stocks_df = np_stocks_df.transpose(1, 0, 2) # [dates, samples, data]
-        tensor_stocks_df = torch.tensor(np_stocks_df)
-        return tensor_stocks_df
     
     
     def rename_columns(self, df, num_of_prev_days):
@@ -109,7 +59,7 @@ class DataUtil:
             df_new = pd.concat([df_new, df_temp], axis=1)
         return df_new
     
-    def grab_data_combined_with_past_features(self, dates: pd.DatetimeIndex = None, ignore_SMH = True, add_none_trading_days = False, num_of_prev_days = 0) -> torch.Tensor:
+    def grab_data_combined(self, ignore_SMH = True, add_none_trading_days = False, num_of_prev_days = 0) -> torch.Tensor:
         """
         Combines all stock data into a single DataFrame for the specified date range.
 
@@ -120,10 +70,6 @@ class DataUtil:
             list of pd.DataFrames: The combined stocks data.
         """
         
-        # Use default date range if none given
-        if type(dates) != pd.DatetimeIndex:
-            print('[WARNING] No date range has been given, using default date range')
-            dates = self.date_range
             
         list_stocks_df = []
         # Initialize an empty DataFrame with the specified dates
@@ -137,7 +83,7 @@ class DataUtil:
                 continue
 
             # Read the CSV file into a temporary DataFrame
-            df = pd.DataFrame(index=dates)
+            df = pd.DataFrame(index=pd.date_range(start=self.start_date, end=self.end_date))
             df_temp = pd.read_csv(
                 file_path,
                 index_col="Date",
@@ -165,7 +111,7 @@ class DataUtil:
                
         
     
-    def grab_a_stock_data(self, dates: pd.DatetimeIndex = None, stock_name: str = None, add_none_trading_days = False, add_date_buffer = True) -> pd.DataFrame:
+    def grab_a_stock_data(self, stock_name: str = None, add_none_trading_days = False, add_date_buffer = True) -> pd.DataFrame:
         """
         Grabs the specific Stock/ETF data given a date range.
 
@@ -179,10 +125,7 @@ class DataUtil:
         if stock_name is None:
             raise ValueError ('No Stock Name given')
         
-        # Use default date range if none given
-        if type(dates) != pd.DatetimeIndex:
-            print('[WARNING] No date range has been given, using default date range')
-            dates = self.date_range
+
         
         # Find the stock name (can be given in name or file format)
         for idx, symbol_file in enumerate(self.all_stock_files):
@@ -196,7 +139,7 @@ class DataUtil:
             raise ValueError ('No Stock Name not found')
         
         # Read the CSV file into a temporary DataFrame
-        df = pd.DataFrame(index=dates)
+        df = pd.DataFrame(index=pd.date_range(start=self.start_date, end=self.end_date))
         df_temp = pd.read_csv(
             file_path,
             index_col="Date",
@@ -212,7 +155,7 @@ class DataUtil:
         
         return df
     
-    def grab_SMH_data(self, dates: pd.DatetimeIndex = None, add_date_buffer = True) -> pd.DataFrame:
+    def grab_SMH_data(self, add_date_buffer = True) -> pd.DataFrame:
         """
         Grabs the SMH data given a date range.
 
@@ -223,10 +166,10 @@ class DataUtil:
             pd.DataFrame of SMH: SMH data.
         """
         
-        return self.grab_a_stock_data(dates = dates, stock_name = 'SMH.csv')
+        return self.grab_a_stock_data(stock_name = 'SMH.csv')
     
-    def grab_SMH_adj_close(self, dates: pd.DatetimeIndex = None, add_date_buffer = True) -> torch.Tensor:
-        df = self.grab_SMH_data(dates = dates).loc[:,"Adj Close"]
+    def grab_SMH_adj_close(self, add_date_buffer = True) -> torch.Tensor:
+        df = self.grab_SMH_data().loc[:,"Adj Close"]
         np_array = np.array(df)
         return torch.tensor(np_array)
         
@@ -237,7 +180,7 @@ if __name__ == "__main__":
     # print("Executing as the main program")
     data_util = DataUtil()
     # combined_data = data_util.grab_data_combined()
-    combined_data = data_util.grab_data_combined_with_past_features(num_of_prev_days=10)
+    combined_data = data_util.grab_data_combined(num_of_prev_days=10)
     print(combined_data.shape)
     print(data_util.grab_data_combined().shape)
 
