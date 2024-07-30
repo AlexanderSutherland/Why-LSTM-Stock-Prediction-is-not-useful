@@ -185,41 +185,32 @@ class DataUtil:
         return torch.tensor(np_array), np_array, df
     
     def grab_SMH_adj_close_minmax(self, min_scal = -1, max_scal = 1, look_back = 7):
+        """
+        Grabs and scales the daily returns of SMH using MinMaxScaler.
+
+        Args:
+            min_scal (int): The minimum scale value.
+            max_scal (int): The maximum scale value.
+            look_back (int): The number of previous days to include in the data.
+
+        Returns:
+            np.ndarray: The scaled data.
+        """
+        
         df_smh = pd.read_csv("./Data/SMH.csv") #, parse_dates =['date'])    
         df_smh["Date"] = pd.to_datetime(df_smh["Date"]) 
         df_smh = df_smh[(df_smh['Date'] >= self.start_date) & (df_smh['Date'] <= self.end_date)]
         
         df_target = df_smh[["Adj Close"]]
         
-        df_shifted = self.add_previous_dates(df_target, look_back)   # add price data of seven (lookback) previous day to each entry of the df. Drop the first six entries as they don't have enough previous date data 
+        df_shifted = self.add_previous_dates_adj_closing(df_target, look_back)   # add price data of seven (lookback) previous day to each entry of the df. Drop the first six entries as they don't have enough previous date data 
         np_shifted = df_shifted.to_numpy()
         
         #scaling df value to be between 01
         scaler = MinMaxScaler(feature_range=(min_scal, max_scal))
         np_shifted = scaler.fit_transform(np_shifted)
         return np_shifted
-    
-    def add_previous_dates(self, df, lookback):
-        """
-        Adds previous dates' data to the DataFrame.
-
-        Args:
-            df (pd.DataFrame): The original DataFrame.
-            lookback (int): The number of previous days to include.
-
-        Returns:
-            pd.DataFrame: The DataFrame with added previous dates' data.
-        """
-        new_df = df.copy()
-        if "Date" in new_df.columns:
-            new_df.set_index("Date", inplace=True)
-
-        for i in range(1, lookback + 1):
-            new_df[f'Adj Close(t-{i})'] = new_df['Adj Close'].shift(i)
-
-        new_df.dropna(inplace=True)
-        return new_df
-    
+        
     def grab_SMH_daily_return_minmax(self, min_scal=-1, max_scal=1, look_back=7):
         """
         Grabs and scales the daily returns of SMH using MinMaxScaler.
@@ -236,14 +227,46 @@ class DataUtil:
         df_smh["Date"] = pd.to_datetime(df_smh["Date"])
         df_smh['daily_return'] = df_smh['Adj Close'].pct_change()
         df_smh = df_smh[(df_smh['Date'] >= self.start_date) & (df_smh['Date'] <= self.end_date)]
-        df_target = df_smh[["Adj Close"]]
-        df_shifted = self.add_previous_dates(df_target, look_back)
+        df_target = df_smh[["daily_return"]]
+        df_shifted = self.add_previous_dates_pct_change(df_target, look_back)
         np_shifted = df_shifted.to_numpy()
         scaler = MinMaxScaler(feature_range=(min_scal, max_scal))
         np_shifted = scaler.fit_transform(np_shifted)
         return np_shifted
     
-    def add_previous_dates(self, df, lookback):
+    
+    def add_previous_dates_pct_change(self, df, lookback):
+        """
+        Adds previous dates' data to the DataFrame.
+
+        Args:
+            df (pd.DataFrame): The original DataFrame.
+            lookback (int): The number of previous days to include.
+
+        Returns:
+            pd.DataFrame: The DataFrame with added previous dates' data.
+        """
+        new_df = df.copy()
+        if "Date" in new_df.columns:
+            new_df.set_index("Date", inplace=True)
+
+        for i in range(1, lookback + 1):
+            new_df[f'daily_return(t-{i})'] = new_df['daily_return'].shift(i)
+
+        new_df.dropna(inplace=True)
+        return new_df
+    
+    def add_previous_dates_adj_closing(self, df, lookback):
+        """
+        Adds previous dates' data to the DataFrame.
+
+        Args:
+            df (pd.DataFrame): The original DataFrame.
+            lookback (int): The number of previous days to include.
+
+        Returns:
+            pd.DataFrame: The DataFrame with added previous dates' data.
+        """
         new_df = df.copy()
         if "Date" in new_df.columns:
             new_df.set_index("Date", inplace=True)
@@ -312,7 +335,7 @@ class DataUtil:
             tuple: A tuple containing training and test DataLoader instances.
         """
             
-        data_shifted = self.grab_SMH_adj_close_minmax(look_back=look_back)
+        data_shifted = self.grab_SMH_daily_return_minmax(look_back=look_back)
 
         x = data_shifted[:, 1:]
         y = data_shifted[:, 0]
