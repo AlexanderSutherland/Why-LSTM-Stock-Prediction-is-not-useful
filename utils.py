@@ -1,5 +1,5 @@
-
-def lstm_dataprep(df, lookback):
+from torch.utils.data import Dataset
+def add_previous_dates(df, lookback):
     new_df = df.copy()
     if "Date" in new_df.columns:
         new_df.set_index("Date", inplace=True)
