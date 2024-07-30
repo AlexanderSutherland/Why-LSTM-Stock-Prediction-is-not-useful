@@ -3,6 +3,8 @@ import pandas as pd
 import torch
 import datetime as dt  
 import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from torch.utils.data import TensorDataset, DataLoader
 
 
 class DataUtil:
@@ -23,8 +25,26 @@ class DataUtil:
         # Default dates:
         self.start_date = start_date
         self.end_date = end_date
-        self.date_range = pd.date_range(self.start_date, self.end_date)
 
+    def update_dates(self, start_date = None, end_date=dt.datetime(2016, 1, 1)):
+        """
+        Updates the set start and end dates in the class.
+
+        Args:
+            start (dt.dateime).
+            end (dt.datetime)
+
+        Returns:
+            None: Updates the dates
+        """
+        
+        if type(start_date) == dt.datetime:
+            print('DataUtil: Updating Start Date')
+            self.start_date = start_date
+        
+        if type(end_date) == dt.datetime:
+            print('DataUtil: Updating End Date')
+            self.end_date = end_date
 
     @staticmethod
     def fill_missing_values(df: pd.DataFrame) -> None:
@@ -111,7 +131,7 @@ class DataUtil:
                
         
     
-    def grab_a_stock_data(self, stock_name: str = None, add_none_trading_days = False, add_date_buffer = True) -> pd.DataFrame:
+    def grab_single_stock_data(self, stock_name: str = None, add_none_trading_days = False, add_date_buffer = True) -> pd.DataFrame:
         """
         Grabs the specific Stock/ETF data given a date range.
 
@@ -124,8 +144,6 @@ class DataUtil:
         file_path_set = False
         if stock_name is None:
             raise ValueError ('No Stock Name given')
-        
-
         
         # Find the stock name (can be given in name or file format)
         for idx, symbol_file in enumerate(self.all_stock_files):
@@ -166,21 +184,88 @@ class DataUtil:
             pd.DataFrame of SMH: SMH data.
         """
         
-        return self.grab_a_stock_data(stock_name = 'SMH.csv')
-    
+        return self.grab_single_stock_data(stock_name = 'SMH.csv')
     def grab_SMH_adj_close(self, add_date_buffer = True) -> torch.Tensor:
         df = self.grab_SMH_data().loc[:,"Adj Close"]
         np_array = np.array(df)
         return torch.tensor(np_array), np_array, df
+    
+    def grab_SMH_adj_close_minmax(self, min_scal = -1, max_scal = 1, look_back = 7):
+        df_smh = pd.read_csv("./Data/SMH.csv") #, parse_dates =['date'])    
+        df_smh["Date"] = pd.to_datetime(df_smh["Date"]) 
+        df_smh = df_smh[(df_smh['Date'] >= self.start_date) & (df_smh['Date'] <= self.end_date)]
         
+        df_target = df_smh[["Adj Close"]]
+        
+        df_shifted = self.add_previous_dates(df_target, look_back)   # add price data of seven (lookback) previous day to each entry of the df. Drop the first six entries as they don't have enough previous date data 
+        np_shifted = df_shifted.to_numpy()
+        
+        #scaling df value to be between 01
+        scaler = MinMaxScaler(feature_range=(min_scal, max_scal))
+        np_shifted = scaler.fit_transform(np_shifted)
+        return np_shifted
+    
+    def add_previous_dates(self, df, lookback):
+        new_df = df.copy()
+        if "Date" in new_df.columns:
+            new_df.set_index("Date", inplace=True)
 
+        for i in range(1, lookback + 1):
+            new_df[f'Adj Close(t-{i})'] = new_df['Adj Close'].shift(i)
 
+        new_df.dropna(inplace=True)
+        return new_df
+        
+    def generate_data_loaders(self,
+                            batch_size=32, 
+                            split_ratio=0.8,
+                            look_back = 0,
+                            device='cpu'):
+        """
+        Grabs the data loaders given a date range.
+
+        Args:
+            batch_size (int, optional): Size of each data batch. Defaults to 32.
+            split_ratio (float, optional): Ratio to split the data into training and testing sets. Defaults to 0.8.
+
+        Returns:
+            tuple: A tuple containing training and test DataLoader instances.
+        """
+            
+        data_shifted = self.grab_SMH_adj_close_minmax(look_back=look_back)
+
+        x = data_shifted[:, 1:]
+        y = data_shifted[:, 0]
+
+        split = int(len(x) * split_ratio)
+
+        # reshaping training data to be able to feed into LSTM
+        x_train = x[:split].reshape(-1, look_back, 1)
+        x_test = x[split:].reshape(-1, look_back, 1)
+        y_train = y[:split].reshape(-1, 1)
+        y_test = y[split:].reshape(-1, 1)
+
+        x_train = torch.tensor(x_train).float()
+        y_train = torch.tensor(y_train).float()
+        x_test = torch.tensor(x_test).float()
+        y_test = torch.tensor(y_test).float()
+
+        train_dataset = TensorDataset(x_train, y_train)
+        test_dataset = TensorDataset(x_test, y_test)
+        
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False )
+        
+        return train_loader, test_loader, x_train, y_train, x_test, y_test
+        
+    def convert_daily_returns_to_price(self, daily_returns):
+        pass
 
 if __name__ == "__main__":
     # print("Executing as the main program")
     data_util = DataUtil()
     # combined_data = data_util.grab_data_combined()
-    combined_data = data_util.grab_data_combined(num_of_prev_days=10)
-    print(combined_data[0].shape)
+    combined_data = data_util.grab_SMH_adj_close_minmax()
+    print(combined_data)
 
 
