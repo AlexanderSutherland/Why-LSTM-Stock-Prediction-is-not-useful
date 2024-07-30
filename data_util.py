@@ -26,23 +26,19 @@ class DataUtil:
         self.start_date = start_date
         self.end_date = end_date
 
-    def update_dates(self, start_date = None, end_date=dt.datetime(2016, 1, 1)):
+    def update_dates(self, start_date = None, end_date=None):
         """
         Updates the set start and end dates in the class.
 
         Args:
-            start (dt.dateime).
-            end (dt.datetime)
-
-        Returns:
-            None: Updates the dates
+            start_date (dt.datetime): The new start date.
+            end_date (dt.datetime): The new end date.
         """
-        
-        if type(start_date) == dt.datetime:
+        if isinstance(start_date, dt.datetime):
             print('DataUtil: Updating Start Date')
             self.start_date = start_date
         
-        if type(end_date) == dt.datetime:
+        if isinstance(end_date, dt.datetime):
             print('DataUtil: Updating End Date')
             self.end_date = end_date
 
@@ -79,53 +75,44 @@ class DataUtil:
             df_new = pd.concat([df_new, df_temp], axis=1)
         return df_new
     
-    def grab_data_combined(self, ignore_SMH = True, add_none_trading_days = False, num_of_prev_days = 0) -> torch.Tensor:
+    def grab_data_combined(self, ignore_SMH=True, add_none_trading_days=False, num_of_prev_days=0) -> torch.Tensor:
         """
         Combines all stock data into a single DataFrame for the specified date range.
 
         Args:
-            dates (pd.DatetimeIndex, optional): The date range to use. Defaults to self.date_range.
+            ignore_SMH (bool): Whether to ignore SMH files.
+            add_none_trading_days (bool): Whether to add non-trading days.
+            num_of_prev_days (int): Number of previous days to include in the data.
 
         Returns:
-            list of pd.DataFrames: The combined stocks data.
+            tuple: A tuple containing the combined stock data as a torch.Tensor, numpy array, and list of DataFrames.
         """
-        
-            
         list_stocks_df = []
-        # Initialize an empty DataFrame with the specified dates
-        for idx, symbol_file in enumerate(self.all_stock_files):
+
+        for symbol_file in self.all_stock_files:
             file_path = os.path.join(self.data_dir, symbol_file)
             print(f'Processing file: {file_path}')
 
-            # Skip files related to 'SMH'
             if ignore_SMH and 'SMH' in symbol_file:
                 print(f'Skipping {symbol_file}')
                 continue
 
-            # Read the CSV file into a temporary DataFrame
             df = pd.DataFrame(index=pd.date_range(start=self.start_date, end=self.end_date))
-            df_temp = pd.read_csv(
-                file_path,
-                index_col="Date",
-                parse_dates=True,
-                na_values=["nan"],
-            )
-            # Only add previous day data to current date if num of previous days is greater than 0
-            if num_of_prev_days > 0:
-                df_temp = self.create_shifted_dates(df_temp, 
-                                                    num_of_prev_days= num_of_prev_days)
+            df_temp = pd.read_csv(file_path, index_col="Date", parse_dates=True, na_values=["nan"])
 
-            # Join the temporary DataFrame with the main DataFrame
+            if num_of_prev_days > 0:
+                df_temp = self.create_shifted_dates(df_temp, num_of_prev_days=num_of_prev_days)
+
             if add_none_trading_days:
                 df = df.join(df_temp)
                 self.fill_missing_values(df)
             else:
                 df = df_temp.loc[self.start_date:self.end_date]
+
             list_stocks_df.append(df)
         
-        print()
-        np_stocks_df = np.array(list_stocks_df) # [samples, dates, data]
-        np_stocks_df = np_stocks_df.transpose(1, 0, 2) # [dates, samples, data]
+        np_stocks_df = np.array(list_stocks_df)
+        np_stocks_df = np_stocks_df.transpose(1, 0, 2)
         tensor_stocks_df = torch.tensor(np_stocks_df)
         return tensor_stocks_df, np_stocks_df, list_stocks_df
                
@@ -183,10 +170,17 @@ class DataUtil:
         Returns:
             pd.DataFrame of SMH: SMH data.
         """
-        
         return self.grab_single_stock_data(stock_name = 'SMH.csv')
-    def grab_SMH_adj_close(self, add_date_buffer = True) -> torch.Tensor:
-        df = self.grab_SMH_data().loc[:,"Adj Close"]
+    
+    
+    def grab_SMH_adj_close(self) -> torch.Tensor:
+        """
+        Grabs the adjusted close prices of SMH.
+
+        Returns:
+            tuple: A tuple containing the adjusted close prices as a torch.Tensor, numpy array, and DataFrame.
+        """
+        df = self.grab_SMH_data().loc[:, "Adj Close"]
         np_array = np.array(df)
         return torch.tensor(np_array), np_array, df
     
@@ -206,6 +200,50 @@ class DataUtil:
         return np_shifted
     
     def add_previous_dates(self, df, lookback):
+        """
+        Adds previous dates' data to the DataFrame.
+
+        Args:
+            df (pd.DataFrame): The original DataFrame.
+            lookback (int): The number of previous days to include.
+
+        Returns:
+            pd.DataFrame: The DataFrame with added previous dates' data.
+        """
+        new_df = df.copy()
+        if "Date" in new_df.columns:
+            new_df.set_index("Date", inplace=True)
+
+        for i in range(1, lookback + 1):
+            new_df[f'Adj Close(t-{i})'] = new_df['Adj Close'].shift(i)
+
+        new_df.dropna(inplace=True)
+        return new_df
+    
+    def grab_SMH_daily_return_minmax(self, min_scal=-1, max_scal=1, look_back=7):
+        """
+        Grabs and scales the daily returns of SMH using MinMaxScaler.
+
+        Args:
+            min_scal (int): The minimum scale value.
+            max_scal (int): The maximum scale value.
+            look_back (int): The number of previous days to include in the data.
+
+        Returns:
+            np.ndarray: The scaled data.
+        """
+        df_smh = pd.read_csv("./Data/SMH.csv")
+        df_smh["Date"] = pd.to_datetime(df_smh["Date"])
+        df_smh['daily_return'] = df_smh['Adj Close'].pct_change()
+        df_smh = df_smh[(df_smh['Date'] >= self.start_date) & (df_smh['Date'] <= self.end_date)]
+        df_target = df_smh[["Adj Close"]]
+        df_shifted = self.add_previous_dates(df_target, look_back)
+        np_shifted = df_shifted.to_numpy()
+        scaler = MinMaxScaler(feature_range=(min_scal, max_scal))
+        np_shifted = scaler.fit_transform(np_shifted)
+        return np_shifted
+    
+    def add_previous_dates(self, df, lookback):
         new_df = df.copy()
         if "Date" in new_df.columns:
             new_df.set_index("Date", inplace=True)
@@ -216,7 +254,7 @@ class DataUtil:
         new_df.dropna(inplace=True)
         return new_df
         
-    def generate_data_loaders(self,
+    def generate_data_loaders_close_price(self,
                             batch_size=32, 
                             split_ratio=0.8,
                             look_back = 0,
@@ -257,7 +295,49 @@ class DataUtil:
         test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False )
         
         return train_loader, test_loader, x_train, y_train, x_test, y_test
+    
+    def generate_data_loaders_daily_returns(self,
+                                            batch_size=32, 
+                                            split_ratio=0.8,
+                                            look_back = 0,
+                                            device='cpu'):
+        """
+        Grabs the data loaders given a date range.
+
+        Args:
+            batch_size (int, optional): Size of each data batch. Defaults to 32.
+            split_ratio (float, optional): Ratio to split the data into training and testing sets. Defaults to 0.8.
+
+        Returns:
+            tuple: A tuple containing training and test DataLoader instances.
+        """
+            
+        data_shifted = self.grab_SMH_adj_close_minmax(look_back=look_back)
+
+        x = data_shifted[:, 1:]
+        y = data_shifted[:, 0]
+
+        split = int(len(x) * split_ratio)
+
+        # reshaping training data to be able to feed into LSTM
+        x_train = x[:split].reshape(-1, look_back, 1)
+        x_test = x[split:].reshape(-1, look_back, 1)
+        y_train = y[:split].reshape(-1, 1)
+        y_test = y[split:].reshape(-1, 1)
+
+        x_train = torch.tensor(x_train).float()
+        y_train = torch.tensor(y_train).float()
+        x_test = torch.tensor(x_test).float()
+        y_test = torch.tensor(y_test).float()
+
+        train_dataset = TensorDataset(x_train, y_train)
+        test_dataset = TensorDataset(x_test, y_test)
         
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False )
+        
+        return train_loader, test_loader, x_train, y_train, x_test, y_test
+    
     def convert_daily_returns_to_price(self, daily_returns):
         pass
 
@@ -265,7 +345,7 @@ if __name__ == "__main__":
     # print("Executing as the main program")
     data_util = DataUtil()
     # combined_data = data_util.grab_data_combined()
-    combined_data = data_util.grab_SMH_adj_close_minmax()
+    combined_data = data_util.grab_SMH_daily_return_minmax()
     print(combined_data)
 
 

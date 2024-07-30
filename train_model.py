@@ -1,14 +1,5 @@
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import datetime as dt
-import pandas as pd
-from cnn_lstm import CNN_LSTM
-from lstm import LSTM
-from data_util import DataUtil
-from torch.utils.data import DataLoader, TensorDataset
-from plotter import plot_price_predictions, plot_loss_epoch
-import numpy as np
+from plotter import plot_loss_epoch
 
 
 def train_model(train_loader, test_loader, model, criterion, optimizer_type, epochs, learning_rate, load_model, device):
@@ -54,14 +45,8 @@ def train_model(train_loader, test_loader, model, criterion, optimizer_type, epo
         _, test_avg_loss = test_model(test_loader, model, criterion, device)
         test_loss_history.append(test_avg_loss)
     
-    plot_loss = input('Would you like to create a plot comparing the train and test datasets losses? Type "YES" to confirm: ')
-    if plot_loss.upper() == 'YES':
-        plot_loss_epoch(train_loss_history, test_loss_history)
-    
-    # Save model updates
-    save_model = input('Would you like to save the model? Type "YES" to confirm: ')
-    if save_model.upper() == 'YES':
-        torch.save(model.state_dict(), 'model.pth')
+
+    plot_loss_epoch(train_loss_history, test_loss_history)
     
     return model
 

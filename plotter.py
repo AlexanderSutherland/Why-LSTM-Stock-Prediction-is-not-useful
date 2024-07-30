@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import torch
 
 def plot_loss_epoch(train_loss_history, test_loss_history):
     plt.plot(train_loss_history, label='Train')
