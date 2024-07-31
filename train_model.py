@@ -2,7 +2,7 @@ import torch
 from plotter import plot_loss_epoch
 
 
-def train_model(train_loader, test_loader, model, criterion, optimizer_type, epochs, learning_rate, load_model, device):
+def train_model(train_loader, test_loader, model, criterion, optimizer_type, epochs, learning_rate, load_model, device, batch = True):
     """
     Trains the given model for stock price prediction.
 
@@ -31,19 +31,27 @@ def train_model(train_loader, test_loader, model, criterion, optimizer_type, epo
     for epoch in range(epochs):
         model.train()
         total_loss = 0
-        for x_batch, y_batch in train_loader:
-            print(x_batch.shape)
-            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+        if batch:
+            for x_batch, y_batch in train_loader:
+                x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+                optimizer.zero_grad()
+                output = model(x_batch)
+                loss = criterion(output, y_batch)
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item()
+        else:
+            x_train, y_train = train_loader
             optimizer.zero_grad()
-            output = model(x_batch)
-            loss = criterion(output, y_batch)
+            output = model(x_train)
+            loss = criterion(output, y_train)
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
         train_loss_history.append(total_loss / len(train_loader))
         print(f'Epoch {epoch+1}/{epochs}, Loss: {total_loss / len(train_loader)}')   
         
-        _, test_avg_loss = test_model(test_loader, model, criterion, device)
+        _, test_avg_loss = test_model(test_loader, model, criterion, device, batch=batch)
         test_loss_history.append(test_avg_loss)
     
 
@@ -52,7 +60,7 @@ def train_model(train_loader, test_loader, model, criterion, optimizer_type, epo
     return model
 
 # Test model on test data
-def test_model(test_loader, model, criterion, device):
+def test_model(test_loader, model, criterion, device, batch = True):
     """
     Tests the given model on the test data.
 
@@ -68,11 +76,19 @@ def test_model(test_loader, model, criterion, device):
     model.eval()
     total_loss = 0
     with torch.no_grad():
-        for x_batch, y_batch in test_loader:
-            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-            output = model(x_batch)
-            loss = criterion(output, y_batch)
+        if batch:
+            for x_batch, y_batch in test_loader:
+                x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+                output = model(x_batch)
+                loss = criterion(output, y_batch)
+                total_loss += loss.item()
+        else:
+            x_test, y_test = test_loader
+            print('x_train shape', x_test.shape)
+            output = model(x_test)
+            loss = criterion(output, y_test)
             total_loss += loss.item()
+            
     avg_loss = total_loss / len(test_loader)
     print(f'Test Loss: {avg_loss}')
     

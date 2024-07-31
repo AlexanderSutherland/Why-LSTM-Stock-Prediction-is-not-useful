@@ -230,9 +230,7 @@ class DataUtil:
         df_target = df_smh[["daily_return"]]
         df_shifted = self.add_previous_dates_pct_change(df_target, look_back)
         np_shifted = df_shifted.to_numpy()
-        scaler = MinMaxScaler(feature_range=(min_scal, max_scal))
-        np_shifted = scaler.fit_transform(np_shifted)
-        print(np_shifted)
+        np_shifted = np_shifted*100
         return np_shifted
     
     def grab_SMH_daily_return_minmax_all_features(self, min_scal=-1, max_scal=1, look_back=7):
