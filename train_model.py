@@ -32,6 +32,7 @@ def train_model(train_loader, test_loader, model, criterion, optimizer_type, epo
         model.train()
         total_loss = 0
         for x_batch, y_batch in train_loader:
+            print(x_batch.shape)
             x_batch, y_batch = x_batch.to(device), y_batch.to(device)
             optimizer.zero_grad()
             output = model(x_batch)

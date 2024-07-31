@@ -232,6 +232,31 @@ class DataUtil:
         np_shifted = df_shifted.to_numpy()
         scaler = MinMaxScaler(feature_range=(min_scal, max_scal))
         np_shifted = scaler.fit_transform(np_shifted)
+        print(np_shifted)
+        return np_shifted
+    
+    def grab_SMH_daily_return_minmax_all_features(self, min_scal=-1, max_scal=1, look_back=7):
+        """
+        Grabs and scales the daily returns of SMH using MinMaxScaler.
+
+        Args:
+            min_scal (int): The minimum scale value.
+            max_scal (int): The maximum scale value.
+            look_back (int): The number of previous days to include in the data.
+
+        Returns:
+            np.ndarray: The scaled data.
+        """
+        df_smh = pd.read_csv("./Data/SMH.csv")
+        df_smh["Date"] = pd.to_datetime(df_smh["Date"])
+        df_smh['daily_return'] = df_smh['Adj Close'].pct_change()
+        df_smh = df_smh[(df_smh['Date'] >= self.start_date) & (df_smh['Date'] <= self.end_date)]
+        df_target = df_smh
+        df_shifted = self.add_previous_dates_pct_change_all_features(df_target, look_back)
+        df_shifted.drop(df_shifted.iloc[:, 0:6], inplace=True, axis=1)
+        np_shifted = df_shifted.to_numpy()
+        scaler = MinMaxScaler(feature_range=(min_scal, max_scal))
+        np_shifted = scaler.fit_transform(np_shifted)
         return np_shifted
     
     
@@ -276,11 +301,35 @@ class DataUtil:
 
         new_df.dropna(inplace=True)
         return new_df
-        
+
+    def add_previous_dates_pct_change_all_features(self, df, lookback):
+        """
+        Adds previous dates' data to the DataFrame.
+
+        Args:
+            df (pd.DataFrame): The original DataFrame.
+            lookback (int): The number of previous days to include.
+
+        Returns:
+            pd.DataFrame: The DataFrame with added previous dates' data.
+        """
+        new_df = df.copy()
+        if "Date" in new_df.columns:
+            new_df.set_index("Date", inplace=True)
+
+        for i in range(1, lookback + 1):
+            for column in df:
+                if column != 'Date':
+                    new_df[column+'(t-'+str(i)+')'] = new_df[column].shift(i)
+
+        new_df.dropna(inplace=True)
+        return new_df
+    
+    
     def generate_data_loaders_close_price(self,
                             batch_size=32, 
                             split_ratio=0.8,
-                            look_back = 0,
+                            look_back = 7,
                             device='cpu'):
         """
         Grabs the data loaders given a date range.
@@ -294,9 +343,9 @@ class DataUtil:
         """
             
         data_shifted = self.grab_SMH_adj_close_minmax(look_back=look_back)
-
         x = data_shifted[:, 1:]
         y = data_shifted[:, 0]
+        
 
         split = int(len(x) * split_ratio)
 
@@ -322,7 +371,7 @@ class DataUtil:
     def generate_data_loaders_daily_returns(self,
                                             batch_size=32, 
                                             split_ratio=0.8,
-                                            look_back = 0,
+                                            look_back = 7,
                                             device='cpu'):
         """
         Grabs the data loaders given a date range.
@@ -361,6 +410,51 @@ class DataUtil:
         
         return train_loader, test_loader, x_train, y_train, x_test, y_test
     
+    def generate_data_loaders_daily_returns_all_features(self,
+                                                        batch_size=32, 
+                                                        split_ratio=0.8,
+                                                        look_back = 7,
+                                                        device='cpu'):
+        """
+        Grabs the data loaders given a date range.
+
+        Args:
+            batch_size (int, optional): Size of each data batch. Defaults to 32.
+            split_ratio (float, optional): Ratio to split the data into training and testing sets. Defaults to 0.8.
+
+        Returns:
+            tuple: A tuple containing training and test DataLoader instances.
+        """
+            
+        data_shifted = self.grab_SMH_daily_return_minmax_all_features(look_back=look_back)
+
+        x = data_shifted[:, 1:]
+        y = data_shifted[:, 0]
+
+
+        split = int(len(x) * split_ratio)
+
+        # reshaping training data to be able to feed into LSTM
+        x_train = x[:split]
+        x_test = x[split:]
+        y_train = y[:split].reshape(-1, 1)
+        y_test = y[split:].reshape(-1, 1)
+
+        x_train = torch.tensor(x_train).float()
+        x_train = x_train.unsqueeze(1)
+        y_train = torch.tensor(y_train).float()
+        x_test = torch.tensor(x_test).float()
+        x_test = x_test.unsqueeze(1)
+        y_test = torch.tensor(y_test).float()
+
+        train_dataset = TensorDataset(x_train, y_train)
+        test_dataset = TensorDataset(x_test, y_test)
+        
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False )
+        
+        return train_loader, test_loader, x_train, y_train, x_test, y_test
+    
     def convert_daily_returns_to_price(self, daily_returns):
         pass
 
@@ -368,7 +462,6 @@ if __name__ == "__main__":
     # print("Executing as the main program")
     data_util = DataUtil()
     # combined_data = data_util.grab_data_combined()
-    combined_data = data_util.grab_SMH_daily_return_minmax()
-    print(combined_data)
+    data_info = combined_data = data_util.generate_data_loaders_daily_returns()
 
 
