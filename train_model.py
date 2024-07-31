@@ -84,7 +84,6 @@ def test_model(test_loader, model, criterion, device, batch = True):
                 total_loss += loss.item()
         else:
             x_test, y_test = test_loader
-            print('x_train shape', x_test.shape)
             output = model(x_test)
             loss = criterion(output, y_test)
             total_loss += loss.item()
