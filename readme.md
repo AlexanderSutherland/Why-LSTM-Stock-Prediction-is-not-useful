@@ -19,15 +19,13 @@ Project Structure
 ├── data  
 │   ├── raw  
 │   ├── processed  
-├── models  
-│   ├── lstm_cnn.py  
-│   ├── train.py  
-│   ├── evaluate.py  
+├── model
+│   ├── lstm.py  
+├── training and testing
+│   ├── train_model.py   
 ├── notebooks  
-├── results  
 ├── utils  
-│   ├── TBD.py  
-│   ├── TBD.py  
+│   ├── data_util.py 
 ├── README.md  
 ├── requirements.txt  
 Installation
