@@ -16,8 +16,8 @@ This project leverages a LSTM model to predict stock prices. Our goal is to deve
 
 Project Structure
 .  
-├── data  
-│   ├── data_util.py
+├── data 
+│├── data_util.py
 ├── model
 │   ├── lstm.py  
 ├── training and testing
