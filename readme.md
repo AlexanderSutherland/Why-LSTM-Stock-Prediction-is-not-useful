@@ -37,9 +37,6 @@ conda env create -f environment.yaml
 
 
 
-Data Link:  
-https://gtvault-my.sharepoint.com/my?id=%2Fpersonal%2Fasutherland9%5Fgatech%5Fedu%2FDocuments%2FDeep%20Learning%20CS7643%2FProject
-
 
 LSTM: Handles sequential data to learn temporal patterns.
 CNN: Extracts local features and patterns in the data.
@@ -64,3 +61,6 @@ Predicting stock prices on the test set.
 Comparing predicted values with actual values using performance metrics.  
 Results
 The results of our experiments, including performance metrics and visualizations, are documented in the results directory.
+
+Report:
+Explains the short comings of a LSTM when used for Stock Prediction
