@@ -23,18 +23,19 @@ Project Structure
 ├── training and testing
 │   ├── train_model.py   
 ├── notebooks  
-├── requirements.txt  
+├── environment.yaml 
+
+
 Installation
 Clone the repository and install the necessary dependencies.
 
 Copy Repo:  
 ```
-git clone https://github.gatech.edu/asutherland9/Deep-Learning-CS7643.git  
+git clone https://github.com/AlexanderSutherland/Why-LSTM-Stock-Prediction-is-not-useful.git
 conda env create -f environment.yaml 
 ```
 
-Report Link:  
-https://www.overleaf.com/project/669f0c77533db67300b566b7
+
 
 Data Link:  
 https://gtvault-my.sharepoint.com/my?id=%2Fpersonal%2Fasutherland9%5Fgatech%5Fedu%2FDocuments%2FDeep%20Learning%20CS7643%2FProject
