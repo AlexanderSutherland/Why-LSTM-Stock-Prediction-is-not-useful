@@ -1,5 +1,5 @@
-LSTM-CNN Model for Stock Market Prediction
-Welcome to the repository for our LSTM-CNN model designed to predict stock market trends. This project integrates the strengths of LSTM and CNN architectures to analyze time-series data and extract features, aiming to outperform traditional methods in stock market prediction.
+LSTM Model for Stock Market Prediction
+Welcome to the repository for our LSTM model designed to predict stock market trends. This project to see the strengths of LSTM architectures to analyze time-series data and extract features, aiming to outperform traditional methods in stock market prediction.
 
 Table of Contents  
 Introduction  
@@ -12,21 +12,17 @@ Training and Evaluation
 Results  
 
 Introduction  
-This project leverages a hybrid LSTM-CNN model to predict stock prices. The LSTM component captures temporal dependencies, while the CNN component extracts meaningful features from the input data. Our goal is to develop a robust model that can effectively predict stock market trends and potentially beat the market.  
+This project leverages a LSTM model to predict stock prices. Our goal is to develop a robust model that can effectively predict stock market trends and potentially beat the market. Given the resource out there 
 
 Project Structure
 .  
 ├── data  
-│   ├── raw  
-│   ├── processed  
+│   ├── data_util.py
 ├── model
 │   ├── lstm.py  
 ├── training and testing
 │   ├── train_model.py   
 ├── notebooks  
-├── utils  
-│   ├── data_util.py 
-├── README.md  
 ├── requirements.txt  
 Installation
 Clone the repository and install the necessary dependencies.
